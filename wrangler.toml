@@ -1,0 +1,14 @@
+# Cloudflare Pages 配置
+name = "hangdn-toolbox"
+compatibility_date = "2024-01-01"
+
+[pages]
+  [pages.build]
+    command = ""
+    cwd = "/"
+    [pages.build.environment]
+      NODE_VERSION = "18"
+
+[[pages.routes]]
+  pattern = "/*"
+  zone_id = ""  # 如果有自定义域名，填入 zone_id
