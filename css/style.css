@@ -1,0 +1,319 @@
+ :root {
+            --glass-bg: rgba(255, 255, 255, 0.005); /* 【关键】几乎抽干底色，极致通透 */
+            --glass-border: rgba(255, 255, 255, 0.25); /* 微微提亮边框，勾勒出水滴的张力边缘 */
+            --primary: #5e5ce6;
+            --text-main: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.65); /* 稍微调亮一点暗色文字，确保在透明下的阅读体验 */
+            --success: #30d158;
+            --warning: #ff9f0a;
+            --error: #ff453a;
+            --nav-height: 60px;
+        }
+
+        html { scroll-behavior: smooth; } 
+        body {
+            font-family: -apple-system, 'SF Pro Display', 'Noto Sans SC', sans-serif;
+            background: #000;
+            margin: 0; padding: 20px;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(94, 92, 230, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(236, 72, 153, 0.15) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(31, 41, 55, 1) 0px, transparent 80%);
+            min-height: 100vh;
+            color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        .nav-tabs-wrapper {
+            position: sticky;
+            top: 20px;
+            margin: 0 auto 30px auto;
+            width: calc(100% - 40px);
+            max-width: 360px;
+            /* 彻底抽干底色，维持 100% 的透亮，不让任何灰色或白色遮挡视线 */
+            background: rgba(255, 255, 255, 0.001); 
+            /* 尖锐、纤细的水滴表面张力边缘：顶部受光极强，两侧及底部隐形 */
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-top: 1.5px solid rgba(255, 255, 255, 0.8);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+            border-radius: 28px;
+            z-index: 1000;
+            /* 精密清澈的内部高光。去掉所有昏暗的环境遮罩，全部换成清透的白色极光 */
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.4),
+                inset 0 8px 16px rgba(255, 255, 255, 0.25), 
+                inset 0 -4px 10px rgba(255, 255, 255, 0.1);
+            transition: all 0.4s cubic-bezier(0.15, 0, 0.15, 1);
+            isolation: isolate;
+        }
+        .nav-tabs-wrapper::before {
+            content: ""; position: absolute; inset: 0; z-index: -2;
+            /* 【核心修改】极限压低模糊到 2px（干掉磨砂雾），保留 160% 强饱和度与微提亮，形成完美的透镜折射，背景极其清透 */
+            backdrop-filter: blur(2px) saturate(160%) brightness(1.1);
+            -webkit-backdrop-filter: blur(2px) saturate(160%) brightness(1.1);
+            /* 继续悬挂流体扭曲滤镜，让清透的背景产生水体特有的动态折射 */
+            filter: url(#glass-distortion-med);
+            border-radius: inherit;
+        }
+        .nav-tabs-wrapper::after {
+            content: ""; position: absolute; inset: 0; z-index: -1;
+            /* 凝聚在水滴顶部的强烈弧形高光（凝聚反光） */
+            background: 
+                radial-gradient(130% 75% at 50% 0%, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 45%);
+            /* 极致纤细的侧边反光带（勾勒弧面液体包裹感） */
+            box-shadow: 
+                inset 0 1px 2px rgba(255, 255, 255, 0.85),
+                inset 1px 0 1px rgba(255, 255, 255, 0.25),
+                inset -1px 0 1px rgba(255, 255, 255, 0.25);
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        .nav-header {
+            padding: 18px 24px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            color: #fff;
+            font-size: 0.95rem;
+            user-select: none;
+        }
+        .nav-header .icon {
+            transition: transform 0.4s cubic-bezier(0.15, 0, 0.15, 1);
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+        .nav-tabs-wrapper.expanded .nav-header .icon {
+            transform: rotate(180deg);
+        }
+
+        .nav-content-grid {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.4s cubic-bezier(0.15, 0, 0.15, 1);
+        }
+        .nav-tabs-wrapper.expanded .nav-content-grid {
+            grid-template-rows: 1fr;
+        }
+        .nav-content {
+            overflow: hidden;
+        }
+        .nav-content-inner {
+            padding: 0 16px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .nav-item {
+            padding: 14px 20px;
+            border-radius: 16px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.03);
+            text-align: left;
+            box-shadow: inset 1px 1px 2px rgba(255, 255, 255, 0.1);
+        }
+        .nav-item:hover { 
+            color: #fff; 
+            background: rgba(255, 255, 255, 0.12); 
+            border-color: rgba(255, 255, 255, 0.25); 
+            box-shadow: inset 1px 1px 4px rgba(255, 255, 255, 0.4);
+            transform: scale(0.98);
+        }
+
+        .container { max-width: 900px; margin: 0 auto; }
+        .main-title {
+            text-align: center;
+            margin: 40px 0 10px;
+            font-size: 2.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.4) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+        .subtitle { text-align: center; color: var(--text-dim); margin-bottom: 50px; font-size: 0.85rem; letter-spacing: 2px; }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between; align-items: center;
+            margin: 60px 0 20px 10px; 
+            scroll-margin-top: 80px; 
+        }
+
+        .section-title { display: flex; flex-direction: column; gap: 2px; }
+        .section-title .zh { font-size: 1.1rem; font-weight: 700; color: #fff; }
+        .section-title .en { font-size: 0.65rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+
+        .card {
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 24px; padding: 24px;
+            transition: all 0.4s cubic-bezier(0.15, 0, 0.15, 1);
+            position: relative; overflow: hidden;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            isolation: isolate;
+        }
+        .card::before {
+            content: ""; position: absolute; inset: 0; z-index: -2;
+            backdrop-filter: blur(2px); /* 卡片同步降低模糊度 */
+            -webkit-backdrop-filter: blur(2px);
+            filter: url(#glass-distortion);
+        }
+        .card::after {
+            content: ""; position: absolute; inset: 0; z-index: -1;
+            background: var(--glass-bg); /* 使用统一的极透底色 */
+            border-radius: inherit;
+            box-shadow: inset 1px 1px 1px 0 rgba(255, 255, 255, 0.25), inset -1px -1px 1px 0 rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            transition: all 0.4s cubic-bezier(0.15, 0, 0.15, 1);
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card:hover::after {
+            background: rgba(255, 255, 255, 0.04); /* Hover时保持极高透明度，不发白 */
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: inset 1px 1px 3px 0 rgba(255, 255, 255, 0.4), inset -1px -1px 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; }
+        .icon-box { display: flex; align-items: center; gap: 12px; }
+        .site-icon { width: 26px; height: 26px; border-radius: 6px; }
+        .node-name { display: flex; flex-direction: column; }
+        .node-name .zh { font-weight: 600; font-size: 0.95rem; }
+        .node-name .en { font-size: 0.65rem; color: var(--text-dim); }
+
+        .tag { font-size: 0.6rem; padding: 2px 8px; border-radius: 100px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); font-weight: 700; }
+        .ip-text { font-family: 'SF Mono', 'Menlo', monospace; font-size: 1.2rem; color: #fff; margin: 8px 0; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+        .sub-text { font-size: 0.75rem; color: var(--text-dim); display: flex; align-items: center; gap: 5px; }
+
+        .latency-bar { height: 6px; width: 100%; background: rgba(255,255,255,0.05); border-radius: 100px; overflow: hidden; margin-top: 12px; }
+        .latency-fill { height: 100%; width: 0%; border-radius: 100px; transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+        .btn-test {
+            padding: 12px 28px; border-radius: 100px; border: none;
+            background: rgba(255, 255, 255, 0.85); color: #000; font-weight: 700; cursor: pointer;
+            transition: all 0.3s; font-size: 0.85rem; box-shadow: 0 4px 15px rgba(255,255,255,0.2);
+            display: flex; flex-direction: column; align-items: center; line-height: 1.2;
+            position: relative; overflow: hidden; isolation: isolate;
+        }
+        .btn-test::before {
+            content: ""; position: absolute; inset: 0; z-index: -2;
+            backdrop-filter: blur(2px); filter: url(#glass-distortion);
+        }
+        .btn-test::after {
+            content: ""; position: absolute; inset: 0; z-index: -1;
+            box-shadow: inset 2px 2px 2px 0 rgba(255, 255, 255, 1), inset -1px -1px 1px 1px rgba(0, 0, 0, 0.1);
+            border-radius: inherit;
+        }
+
+        .header-btns { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .btn-screenshot {
+            padding: 12px 20px; border-radius: 100px; border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.08); color: #fff; font-weight: 600; cursor: pointer;
+            transition: all 0.3s; font-size: 0.8rem; display: flex; flex-direction: column; align-items: center; line-height: 1.2;
+        }
+        .btn-screenshot:hover { background: rgba(255, 255, 255, 0.15); }
+        .btn-screenshot:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-run-all {
+            width: 100%; margin-top: 14px; padding: 14px 28px; border-radius: 14px; border: none;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6); color: #fff; font-weight: 700; cursor: pointer;
+            font-size: 0.9rem; display: flex; flex-direction: column; align-items: center; line-height: 1.3; gap: 2px;
+            transition: all 0.3s; box-shadow: 0 4px 15px rgba(94, 92, 230, 0.35);
+        }
+        .btn-run-all:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-run-all:hover:not(:disabled) { filter: brightness(1.1); }
+        .btn-test span.en { font-size: 0.6rem; text-transform: uppercase; opacity: 0.6; }
+        .btn-test:hover { transform: scale(1.05); box-shadow: 0 8px 25px rgba(255,255,255,0.4); }
+
+        .status-good { color: var(--success); }
+        .status-warn { color: var(--warning); }
+        .status-bad { color: var(--error); }
+        .anim-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+
+        .dns-leak-results { margin-top: 15px; display: flex; flex-direction: column; gap: 10px; }
+        .dns-item { font-size: 0.85rem; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 12px; display: flex; flex-direction: column; gap: 4px; }
+        .conclusion { margin-top: 15px; padding: 15px; border-radius: 16px; text-align: center; font-weight: 700; font-size: 1rem; }
+        .leak-detected { background: rgba(255, 69, 58, 0.1); border: 1px solid var(--error); color: var(--error); }
+        .leak-safe { background: rgba(48, 209, 88, 0.1); border: 1px solid var(--success); color: var(--success); }
+
+        #split-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        @media (max-width: 640px) { 
+            .grid, #split-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .card { padding: 12px 8px; border-radius: 14px; }
+            .ip-text { font-size: 0.75rem; flex-wrap: wrap; word-break: break-all; gap: 4px; }
+            .node-name .zh { font-size: 0.7rem; }
+            .node-name .en { font-size: 0.5rem; }
+            .sub-text { font-size: 0.55rem; }
+            .tag { font-size: 0.5rem; padding: 2px 4px; }
+            .site-icon { width: 16px; height: 16px; }
+            .group-header .zh { font-size: 0.85rem; }
+        }
+        .group-header {
+            grid-column: 1 / -1;
+            display: flex; align-items: baseline; gap: 8px;
+            margin: 28px 0 4px; padding-bottom: 8px;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .group-header:first-child { margin-top: 4px; }
+        .group-header .zh { font-size: 1.05rem; font-weight: 800; color: #fff; }
+        .group-header .en { font-size: 0.65rem; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- 玻璃渲染质量切换 UI 样式 --- */
+        .glass-toggle-wrapper { display: flex; flex-direction: column; align-items: center; margin-bottom: 25px; }
+        .settings-part { border-bottom: 1px dashed var(--glass-border); padding-bottom: 16px; margin-bottom: 16px; }
+        .settings-part-title { font-weight: 700; color: #fff; font-size: 0.9rem; margin-bottom: 10px; }
+
+        /* 截图模式：html2canvas 无法正确渲染 backdrop-filter / SVG filter 造成的玻璃拟态，
+           截图期间临时切换为纯色背景，避免出现错位、撕裂的斜切伪影 */
+        body.screenshot-capture .card::before,
+        body.screenshot-capture .card::after,
+        body.screenshot-capture .nav-tabs-wrapper::before,
+        body.screenshot-capture .btn-test::before,
+        body.screenshot-capture .btn-test::after {
+            display: none !important;
+        }
+        body.screenshot-capture .card {
+            background: #17171d !important;
+            border: 1px solid rgba(255,255,255,0.12) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+        }
+        body.screenshot-capture .btn-test {
+            background: #e5e5ea !important;
+            box-shadow: none !important;
+        }
+        body.screenshot-capture .nav-tabs-wrapper {
+            position: static !important;
+            box-shadow: none !important;
+            background: #17171d !important;
+        }
+        .glass-toggle { display: flex; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 100px; padding: 4px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+        .glass-toggle button { background: transparent; border: none; color: var(--text-dim); padding: 6px 16px; border-radius: 100px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+        .glass-toggle button.active { background: rgba(255, 255, 255, 0.15); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+
+        .glass-notice { font-size: 0.7rem; color: var(--text-dim); margin-top: 10px; text-align: center; max-width: 90%; line-height: 1.5; }
+        .glass-notice strong { color: rgba(255, 255, 255, 0.8); }
+
+        /* 渲染质量覆盖样式 - 低 (无 SVG 液态计算) */
+        body[data-glass="low"] .card::before, body[data-glass="low"] .nav-tabs-wrapper::before, body[data-glass="low"] .btn-test::before { filter: none !important; }
+        body[data-glass="low"] .card::before { backdrop-filter: blur(40px) saturate(200%) !important; -webkit-backdrop-filter: blur(40px) saturate(200%) !important; }
+        body[data-glass="low"] .nav-tabs-wrapper::before { backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; }
+        body[data-glass="low"] .btn-test::before { backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }
+        body[data-glass="low"] .card::after { background: rgba(255, 255, 255, 0.05) !important; }
+
+        /* 渲染质量覆盖样式 - 中 (带折射，模糊度略高) */
+        body[data-glass="medium"] .card::before { backdrop-filter: blur(5px) !important; -webkit-backdrop-filter: blur(5px) !important; filter: url(#glass-distortion-med) !important; }
+        body[data-glass="medium"] .nav-tabs-wrapper::before { backdrop-filter: blur(6px) !important; -webkit-backdrop-filter: blur(6px) !important; filter: url(#glass-distortion-med) !important; }
+        body[data-glass="medium"] .btn-test::before { filter: url(#glass-distortion-med) !important; }
