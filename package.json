@@ -1,0 +1,27 @@
+{
+  "name": "hangdn-network-toolbox",
+  "version": "1.0.0",
+  "description": "航丹网络工具箱 - IP检测、DNS泄漏检测、延迟测试",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "echo 'Static site, no build needed'",
+    "start": "npx serve . --port 3000",
+    "deploy:vercel": "vercel --prod",
+    "deploy:netlify": "netlify deploy --prod",
+    "deploy:cloudflare": "wrangler pages deploy . --project-name=hangdn-toolbox"
+  },
+  "keywords": [
+    "network",
+    "toolbox",
+    "dns",
+    "ip",
+    "latency",
+    "diagnostic"
+  ],
+  "author": "Hangdndh",
+  "license": "MIT",
+  "devDependencies": {
+    "serve": "^14.0.0"
+  }
+}
