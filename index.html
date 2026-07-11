@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>航丹网络工具箱 | Hangdn Network Toolbox</title>
+    <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@400;600;800&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+     <!-- 1. 引入 CSS 样式 -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<svg style="display: none">
+    <filter id="glass-distortion" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.005 0.01" numOctaves="1" seed="17" result="turbulence" />
+        <feComponentTransfer in="turbulence" result="mapped">
+            <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+            <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+            <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="2" result="softMap" />
+        <feSpecularLighting in="softMap" surfaceScale="2" specularConstant="1" specularExponent="100" lighting-color="white" result="specLight">
+            <fePointLight x="-200" y="-200" z="300" />
+        </feSpecularLighting>
+        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="10" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="glass-distortion-med" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox" color-interpolation-filters="sRGB">
+        <feTurbulence type="fractalNoise" baseFrequency="0.005 0.01" numOctaves="1" seed="17" result="turbulence" />
+        <feComponentTransfer in="turbulence" result="mapped">
+            <feFuncR type="gamma" amplitude="1" exponent="10" offset="0.5" />
+            <feFuncG type="gamma" amplitude="0" exponent="1" offset="0" />
+            <feFuncB type="gamma" amplitude="0" exponent="1" offset="0.5" />
+        </feComponentTransfer>
+        <feGaussianBlur in="turbulence" stdDeviation="3" result="softMap" />
+        <feSpecularLighting in="softMap" surfaceScale="3" specularConstant="1" specularExponent="80" lighting-color="white" result="specLight">
+            <fePointLight x="-200" y="-200" z="300" />
+        </feSpecularLighting>
+        <feComposite in="specLight" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="litImage" />
+        <feDisplacementMap in="SourceGraphic" in2="softMap" scale="15" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+</svg>
+
+<div class="nav-tabs-wrapper" id="navMenu">
+    <div class="nav-header" onclick="document.getElementById('navMenu').classList.toggle('expanded')">
+        <span>导航菜单 / Navigation</span>
+        <span class="icon">▼</span>
+    </div>
+    <div class="nav-content-grid">
+        <div class="nav-content">
+            <div class="nav-content-inner">
+                <a href="#identity-section" class="nav-item" onclick="document.getElementById('navMenu').classList.remove('expanded')">IP 地址</a>
+                <a href="#dns-section" class="nav-item" onclick="document.getElementById('navMenu').classList.remove('expanded')">DNS 泄漏</a>
+                <a href="#latency-section" class="nav-item" onclick="document.getElementById('navMenu').classList.remove('expanded')">延迟诊断</a>
+                <a href="#split-section" class="nav-item" onclick="document.getElementById('navMenu').classList.remove('expanded')">IP 出口检测</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="main-title">航丹网络工具箱</div>
+    <div class="subtitle">Hangdn NETWORK TOOLBOX ・ PRO RELEASE</div>
+
+    <details class="settings-panel" style="margin-bottom: 30px; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: 12px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; border: 1px solid var(--glass-border);">
+        <summary style="font-weight: 600; color: #fff; outline: none; user-select: none;">系统设置 (点击展开) / Settings</summary>
+
+        <div class="settings-part">
+            <div class="settings-part-title">① UI 设置 / UI Settings</div>
+            <div class="glass-toggle-wrapper" style="margin-bottom: 0;">
+                <div class="glass-toggle">
+                    <button id="btn-glass-low" onclick="setGlassMode('low')">流畅 (低)</button>
+                    <button id="btn-glass-medium" class="active" onclick="setGlassMode('medium')">均衡 (中)</button>
+                    <button id="btn-glass-high" onclick="setGlassMode('high')">极客 (高)</button>
+                </div>
+                <div class="glass-notice">
+                    提示：选项越高，UI 越好看，越吃性能，如果手机较卡建议调低一些。<br>
+                    （注：高玻璃渲染效果建议旗舰芯片开启，比如 <strong>A16 Pro 以及骁龙 8E 以上</strong>）
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-part">
+            <div class="settings-part-title">② IP 显示 / IP Display</div>
+            <p style="margin-top: 0; margin-bottom: 10px;">选择 IP 地址在页面中的展示方式（该设置会自动保存到本机）：</p>
+            <div class="glass-toggle">
+                <button id="btn-ip-none" class="active" onclick="setIPHideMode('none')">不隐藏</button>
+                <button id="btn-ip-full" onclick="setIPHideMode('full')">隐藏</button>
+                <button id="btn-ip-partial" onclick="setIPHideMode('partial')">显示前两位</button>
+            </div>
+        </div>
+
+        <div class="settings-part" style="border-bottom: none; padding-bottom: 0; margin-bottom: 0;">
+            <div class="settings-part-title">③ 截图保存 / Screenshot</div>
+            <button class="btn-run-all" id="run-all-btn" onclick="runAllTestsAndScreenshot()">
+                <span class="zh">一键测试并保存截图 (自动/10s)</span>
+                <span class="en">Run All Tests & Save Screenshot (Auto/10s)</span>
+            </button>
+        </div>
+    </details>
+
+    <details style="margin-bottom: 30px; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: 12px; font-size: 0.85rem; color: var(--text-dim); cursor: pointer; border: 1px solid var(--glass-border);">
+        <summary style="font-weight: 600; color: #fff; outline: none; user-select: none;">公告栏 (点击展开) / Announcements</summary>
+        <div style="margin-top: 12px; line-height: 1.6;">
+            <p style="margin-top: 0; color: #fff;"><strong>欢迎使用航丹网络工具箱 PRO！</strong></p>
+            <ul style="padding-left: 20px; margin-top: 0; margin-bottom: 0;">
+                <li><strong>IP信息展示：</strong>现已支持联动展开，点击任意卡片即可同步展开同组所有节点的详细信息，保持排版美观。</li>
+                <li><strong>节点测试：</strong>进行分流测试或延迟测试时，请耐心等待所有节点探测完毕。</li>
+                <li><strong>隐私声明：</strong>本站运行在边缘节点，纯前端探测，不收集或记录任何用户隐私数据，请放心使用。</li>
+                <li><strong>联系方式：</strong>TG群组：<a href="https://t.me/Hangdndh_chat" target="_blank" style="color: var(--primary); text-decoration: none;">@Hangdndh_chat</a> | GitHub：<a href="https://github.com/Hangdndh/" target="_blank" style="color: var(--primary); text-decoration: none;">Hangdndh</a> | 博客：<a href="https://blog.Hangdndh.com/" target="_blank" style="color: var(--primary); text-decoration: none;">blog.Hangdndh.com</a></li>
+            </ul>
+        </div>
+    </details>
+
+    <div class="section-header" id="identity-section">
+        <div class="section-title">
+            <span class="zh">IP地址检测</span>
+            <span class="en">Identity & Origin</span>
+        </div>
+        <div class="header-btns">
+            <button class="btn-screenshot" onclick="captureSection('identity-grid', 'IP地址检测')">
+                <span class="zh">截图保存</span>
+                <span class="en">Screenshot</span>
+            </button>
+        </div>
+    </div>
+    <div class="grid" id="identity-grid"></div>
+
+    <div class="section-header" id="dns-section">
+        <div class="section-title">
+            <span class="zh">DNS 泄漏检测</span>
+            <span class="en">DNS Leak Security</span>
+        </div>
+        <div class="header-btns">
+            <button class="btn-test" id="dns-test-btn" onclick="runDNSLeakTest()">
+                <span class="zh">开始检测</span>
+                <span class="en">Check Security</span>
+            </button>
+            <button class="btn-screenshot" onclick="captureSection('dns-section-body', 'DNS泄漏检测')">
+                <span class="zh">截图保存</span>
+                <span class="en">Screenshot</span>
+            </button>
+        </div>
+    </div>
+    <div class="grid" id="dns-section-body">
+        <div class="card" style="grid-column: 1 / -1;">
+            <div id="dns-ip-info" class="ip-text">等待指令...</div>
+            <div class="latency-bar"><div id="dns-progress" class="latency-fill" style="background: var(--primary);"></div></div>
+            <div id="dns-results" class="dns-leak-results"></div>
+            <div id="dns-conclusion"></div>
+            <details style="margin-top: 15px; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: 12px; font-size: 0.8rem; color: var(--text-dim); cursor: pointer; border: 1px solid var(--glass-border);">
+                <summary style="font-weight: 600; color: #fff; outline: none; user-select: none;">什么是 DNS 泄漏？为什么需要关注？(点击展开)</summary>
+                <div style="margin-top: 12px; line-height: 1.6;">
+                    <p style="margin-top: 0;"><strong>DNS 泄漏 (DNS Leak)</strong> 是指在您使用代理或 VPN 时，您的设备仍然将域名解析请求发送给本地网络提供商（ISP）的 DNS 服务器。</p>
+                    <p style="margin-bottom: 4px;"><strong>为什么值得关注？</strong></p>
+                    <ul style="padding-left: 20px; margin-top: 0;">
+                        <li><strong>隐私泄露：</strong> 即使您的访问流量被代理软件加密，本地 ISP 依然可以通过 DNS 查询记录知道您访问了哪些网站。</li>
+                        <li><strong>访问受限：</strong> 如果请求未通过代理节点转发，您可能会遇到 DNS 污染，导致获取到虚假的网站 IP 从而无法访问外网。</li>
+                    </ul>
+                    <p style="margin-bottom: 0;"><strong>理想安全状态：</strong> 代理开启时，您的出口 IP 为国外，且您的 DNS 请求也应由国外的 DNS 服务器负责解析（即 IP 与 DNS 均为国外地区）。</p>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <div class="section-header" id="latency-section">
+        <div class="section-title">
+            <span class="zh">全球延迟</span>
+            <span class="en">Global Latency Matrix</span>
+        </div>
+        <div class="header-btns">
+            <button class="btn-test" id="test-btn" onclick="runLatencyTest()">
+                <span class="zh">一键诊断</span>
+                <span class="en">Run Diagnostics</span>
+            </button>
+            <button class="btn-screenshot" onclick="captureSection('latency-grid', '全球延迟')">
+                <span class="zh">截图保存</span>
+                <span class="en">Screenshot</span>
+            </button>
+        </div>
+    </div>
+    <div class="grid" id="latency-grid"></div>
+
+    <div class="section-header" id="split-section">
+        <div class="section-title">
+            <span class="zh">IP出口检测 (网站分流测试)</span>
+            <span class="en">Split Tunnel Exit IP Matrix</span>
+        </div>
+        <div class="header-btns">
+            <button class="btn-test" id="split-test-btn" onclick="runSplitTest()">
+                <span class="zh">开始检测</span>
+                <span class="en">Run Exit Test</span>
+            </button>
+            <button class="btn-screenshot" onclick="captureSection('split-grid', 'IP出口检测')">
+                <span class="zh">截图保存</span>
+                <span class="en">Screenshot</span>
+            </button>
+        </div>
+    </div>
+    <div class="grid" id="split-grid"></div>
+
+    <footer style="text-align:center; margin-top:100px; color:rgba(255,255,255,0.2); font-size:0.75rem; padding-bottom:50px; letter-spacing:1px;">
+        <p>航丹 &copy; 2026</p>
+        <p>POWERED BY CLOUDFLARE PAGES / WORKERS</p>
+    </footer>
+</div>
+ <!-- ====== 3. 引入 JavaScript ====== -->
+    <script src="script.js"></script>
+</body>
+</html>
+  
