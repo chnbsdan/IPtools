@@ -1,10 +1,10 @@
-# 🚀 航丹网络工具箱
+# 🚀 Hangdn 网络工具箱
 
 > 纯前端网络诊断工具，无需服务器，一键检测您的网络状态
 
-[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/yourusername/hangdn-network-toolbox)
-[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/yourusername/hangdn-network-toolbox)
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/yourusername/hangdn-network-toolbox)
+[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chnbsdan/iptools)
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/import/project?template=https://github.com/chnbsdan/iptools)
+[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/chnbsdan/iptools)
 
 ## ✨ 功能特性
 
@@ -29,7 +29,7 @@
 
 点击下方按钮即可一键部署：
 
-[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/yourusername/hangdn-network-toolbox)
+[![Deploy to Cloudflare Pages](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/chnbsdan/iptools)
 
 ### 方式二：手动部署
 
@@ -70,10 +70,10 @@ netlify deploy --prod
 🏠 本地运行
 bash
 # 克隆项目
-git clone https://github.com/yourusername/hangdn-network-toolbox.git
+git clone https://github.com/chnbsdan/iptools.git
 
 # 进入目录
-cd hangdn-network-toolbox
+cd chnbsdan/iptools
 
 # 启动本地服务器
 npm run dev
@@ -99,9 +99,9 @@ bash
 # 创建新仓库并上传所有文件
 git init
 git add .
-git commit -m "Initial commit: Hangdn Network Toolbox"
+git commit -m "Initial commit: iptools"
 git branch -M main
-git remote add origin https://github.com/您的用户名/hangdn-network-toolbox.git
+git remote add origin https://github.com/您的用户名/iptools.git
 git push -u origin main
 2. 部署到各个平台
 Cloudflare Pages（最快）
@@ -111,7 +111,7 @@ Cloudflare Pages（最快）
 
 点击 Connect to Git → 选择 GitHub
 
-选择仓库 hangdn-network-toolbox
+选择仓库 iptools
 
 构建设置全部留空
 
