@@ -1581,3 +1581,128 @@ document.addEventListener('DOMContentLoaded', function() {
   // 确保窗口可拖拽样式
   floatingLyrics.style.cursor = 'grab';
 });
+
+// ============================================================
+// 歌词窗口缩放功能（解决 resize: fixed 不生效问题）
+// ============================================================
+(function initLyricsResize() {
+    const lyrics = document.getElementById('floating-lyrics');
+    if (!lyrics) return;
+
+    // 检查是否已经存在缩放手柄，避免重复添加
+    if (document.getElementById('lyrics-resize-handle')) return;
+
+    // 创建缩放手柄（右下角）
+    const resizeHandle = document.createElement('div');
+    resizeHandle.id = 'lyrics-resize-handle';
+    resizeHandle.style.cssText = `
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 24px;
+        height: 24px;
+        cursor: nwse-resize;
+        z-index: 20;
+        background: linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.35) 50%);
+        border-radius: 0 0 18px 0;
+        pointer-events: auto;
+        touch-action: none;
+    `;
+    lyrics.appendChild(resizeHandle);
+
+    // 亮色模式适配
+    function updateHandleTheme() {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        resizeHandle.style.background = isLight 
+            ? 'linear-gradient(135deg, transparent 50%, rgba(0,0,0,0.15) 50%)'
+            : 'linear-gradient(135deg, transparent 50%, rgba(255,255,255,0.35) 50%)';
+    }
+    updateHandleTheme();
+
+    // 监听主题切换
+    const themeObserver = new MutationObserver(updateHandleTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    let isResizing = false;
+    let startX = 0, startY = 0;
+    let startWidth = 0, startHeight = 0;
+
+    // 鼠标缩放
+    resizeHandle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isResizing = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        startWidth = lyrics.offsetWidth;
+        startHeight = lyrics.offsetHeight;
+        lyrics.style.cursor = 'nwse-resize';
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'nwse-resize';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        e.preventDefault();
+        
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        let newWidth = Math.min(Math.max(startWidth + deltaX, 180), window.innerWidth * 0.85);
+        let newHeight = Math.min(Math.max(startHeight + deltaY, 60), window.innerHeight * 0.75);
+        
+        lyrics.style.width = newWidth + 'px';
+        lyrics.style.height = newHeight + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            lyrics.style.cursor = 'grab';
+            document.body.style.userSelect = '';
+            document.body.style.cursor = '';
+        }
+    });
+
+    // 触摸缩放（移动端）
+    resizeHandle.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const touch = e.touches[0];
+        isResizing = true;
+        startX = touch.clientX;
+        startY = touch.clientY;
+        startWidth = lyrics.offsetWidth;
+        startHeight = lyrics.offsetHeight;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+        if (!isResizing) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - startX;
+        const deltaY = touch.clientY - startY;
+        
+        let newWidth = Math.min(Math.max(startWidth + deltaX, 180), window.innerWidth * 0.85);
+        let newHeight = Math.min(Math.max(startHeight + deltaY, 60), window.innerHeight * 0.75);
+        
+        lyrics.style.width = newWidth + 'px';
+        lyrics.style.height = newHeight + 'px';
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+        isResizing = false;
+    });
+
+    // 窗口resize时保持边界
+    window.addEventListener('resize', () => {
+        const currentWidth = parseInt(lyrics.style.width) || lyrics.offsetWidth;
+        const currentHeight = parseInt(lyrics.style.height) || lyrics.offsetHeight;
+        const maxW = window.innerWidth * 0.85;
+        const maxH = window.innerHeight * 0.75;
+        if (currentWidth > maxW) lyrics.style.width = maxW + 'px';
+        if (currentHeight > maxH) lyrics.style.height = maxH + 'px';
+    });
+
+    console.log('✅ 歌词窗口缩放功能已启动');
+})();
