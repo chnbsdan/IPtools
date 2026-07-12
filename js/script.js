@@ -99,6 +99,56 @@ const splitNodes = [
     { id: 'sp-nhentai', zh: 'nhentai', en: 'nhentai', group: 'NSFW', url: 'https://nhentai.net/cdn-cgi/trace' }
 ];
 
+// ============================================================
+// 为特定节点配置备用域名（在原有基础上添加 jsDelivr）
+// ============================================================
+const nodeFallbacks = {
+    'sp-cn-cloudflare': [
+        'https://cloudflare-cn.com/cdn-cgi/trace',
+        'https://www.cloudflare.com/cdn-cgi/trace'
+    ],
+    'sp-cn-visa': [
+        'https://www.visa.cn/cdn-cgi/trace',
+        'https://www.visa.com/cdn-cgi/trace'
+    ],
+    'sp-cn-canva': [
+        'https://www.canva.cn/cdn-cgi/trace',
+        'https://www.canva.com/cdn-cgi/trace'
+    ],
+    'sp-cn-shopify': [
+        'https://shopify.cn/cdn-cgi/trace',
+        'https://www.shopify.com/cdn-cgi/trace'
+    ],
+    'sp-cn-poki': [
+        'https://poki.cn/cdn-cgi/trace',
+        'https://poki.com/cdn-cgi/trace'
+    ],
+    'sp-cloudflare': [
+        'https://www.cloudflare.com/cdn-cgi/trace',
+        'https://cloudflare.com/cdn-cgi/trace'
+    ],
+    'sp-visa': [
+        'https://www.visa.com/cdn-cgi/trace',
+        'https://www.visa.com.sg/cdn-cgi/trace'
+    ],
+    // ===== 新增 jsDelivr 备用域名 =====
+    'sp-jsdelivr': [
+        'https://cdn.jsdelivr.net/cdn-cgi/trace',
+        'https://testingcf.jsdelivr.net/cdn-cgi/trace',
+        'https://fastly.jsdelivr.net/cdn-cgi/trace',
+        'https://gcore.jsdelivr.net/cdn-cgi/trace'
+    ],
+    // ===== 新增其他可能失败的节点 =====
+    'sp-cdnjs': [
+        'https://cdnjs.cloudflare.com/cdn-cgi/trace',
+        'https://cdnjs.com/cdn-cgi/trace'
+    ],
+    'sp-unpkg': [
+        'https://unpkg.com/cdn-cgi/trace',
+        'https://app.unpkg.com/cdn-cgi/trace'
+    ]
+};
+
 // --- 工具函数 ---
 function getFlagEmoji(countryCode) {
     if (!countryCode || countryCode.length !== 2) return "🌐";
@@ -559,19 +609,103 @@ async function runLatencyTest() {
 }
 
 // --- 核心探测函数集合 ---
-async function getCFNodeIP(url, timeoutMs = 6000) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        const res = await fetch(url, { signal: controller.signal });
-        const text = await res.text();
-        const ip = text.match(/ip=([^\n]+)/)?.[1];
-        const loc = text.match(/loc=([^\n]+)/)?.[1] || '';
-        if (!ip) throw new Error('parse fail');
-        return { ip, loc };
-    } finally {
-        clearTimeout(timer);
+async function getCFNodeIP(url, timeoutMs = 8000) {
+    async function strategy1() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url + '?t=' + Date.now() + '_' + Math.random().toString(36).substring(2), { 
+                signal: controller.signal,
+                headers: { 
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache'
+                }
+            });
+            const text = await res.text();
+            const ip = text.match(/ip=([^\n]+)/)?.[1];
+            const loc = text.match(/loc=([^\n]+)/)?.[1] || '';
+            if (ip && ip !== 'Unknown') {
+                return { ip, loc };
+            }
+            throw new Error('parse fail');
+        } finally {
+            clearTimeout(timer);
+        }
     }
+    
+    async function strategy2() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch('https://www.cloudflare.com/cdn-cgi/trace', { 
+                signal: controller.signal 
+            });
+            const text = await res.text();
+            const ip = text.match(/ip=([^\n]+)/)?.[1];
+            const loc = text.match(/loc=([^\n]+)/)?.[1] || '';
+            if (ip && ip !== 'Unknown') {
+                return { ip, loc };
+            }
+            throw new Error('parse fail');
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+    
+    async function strategy3() {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const res = await fetch(url, { 
+                method: 'HEAD',
+                signal: controller.signal 
+            });
+            const ip = res.headers.get('cf-connecting-ip') || 
+                       res.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+                       res.headers.get('x-real-ip');
+            if (ip && ip !== 'Unknown') {
+                return { ip, loc: '' };
+            }
+            throw new Error('no ip header');
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    const strategies = [strategy1, strategy2, strategy3];
+    for (const strategy of strategies) {
+        try {
+            const result = await strategy();
+            if (result && result.ip && result.ip !== 'Unknown') {
+                return result;
+            }
+        } catch (e) {
+            continue;
+        }
+    }
+    throw new Error('所有探测方式均失败');
+}
+
+// ============================================================
+// 支持备用域名的增强探测函数
+// ============================================================
+async function getCFNodeIPWithFallback(node, timeoutMs = 8000) {
+    const fallbackUrls = nodeFallbacks[node.id] || [];
+    const urls = [node.url, ...fallbackUrls];
+    
+    let lastError = null;
+    for (const url of urls) {
+        try {
+            const result = await getCFNodeIP(url, timeoutMs);
+            if (result && result.ip && result.ip !== 'Unknown') {
+                return result;
+            }
+        } catch (e) {
+            lastError = e;
+            continue;
+        }
+    }
+    throw new Error('所有备用URL均失败: ' + (lastError ? lastError.message : '未知错误'));
 }
 
 function getAliNodeIP(timeoutMs = 6000) {
@@ -597,20 +731,108 @@ function getAliNodeIP(timeoutMs = 6000) {
 // 腾讯更新版 (利用最新的 r.inews.qq.com JSONP)
 function getTencentNodeIP(timeoutMs = 6000) {
     return new Promise((resolve, reject) => {
-        const cb = 'tencent_jsonp_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-        const script = document.createElement('script');
-        const timer = setTimeout(() => { cleanup(); reject(new Error('timeout')); }, timeoutMs);
-        function cleanup() { clearTimeout(timer); delete window[cb]; script.remove(); }
-        window[cb] = function (data) {
+        // 方案1: 使用腾讯云 API (更稳定)
+        async function tryTencentCloud() {
             try {
-                const ip = data && data.ip;
-                cleanup();
-                if (ip) resolve({ ip, loc: 'CN' }); else reject(new Error('no ip'));
-            } catch (e) { cleanup(); reject(e); }
-        };
-        script.src = `https://r.inews.qq.com/api/ip2city?otype=jsonp&callback=${cb}`;
-        script.onerror = () => { cleanup(); reject(new Error('load error')); };
-        document.body.appendChild(script);
+                const res = await fetch('https://api.qcloud.com/v2/index.php?Action=DescribeInstances&Version=2017-03-12&Region=ap-guangzhou', {
+                    method: 'GET',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+                // 尝试从响应头获取 IP
+                const ip = res.headers.get('x-forwarded-for') || 
+                           res.headers.get('x-real-ip') ||
+                           res.headers.get('cf-connecting-ip');
+                if (ip) {
+                    return { ip, loc: 'CN' };
+                }
+                throw new Error('no ip from tencent cloud');
+            } catch (e) {
+                throw e;
+            }
+        }
+
+        // 方案2: 使用腾讯新闻 JSONP (原方案，增加重试)
+        function tryTencentNews() {
+            return new Promise((resolve2, reject2) => {
+                const cb = 'tencent_jsonp_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                const script = document.createElement('script');
+                const timer = setTimeout(() => { 
+                    cleanup(); 
+                    reject2(new Error('timeout')); 
+                }, timeoutMs);
+                
+                function cleanup() { 
+                    clearTimeout(timer); 
+                    delete window[cb]; 
+                    script.remove(); 
+                }
+                
+                window[cb] = function (data) {
+                    try {
+                        const ip = data && data.ip;
+                        cleanup();
+                        if (ip && ip !== 'Unknown') {
+                            resolve2({ ip, loc: 'CN' });
+                        } else {
+                            reject2(new Error('no ip'));
+                        }
+                    } catch (e) { 
+                        cleanup(); 
+                        reject2(e); 
+                    }
+                };
+                
+                script.src = `https://r.inews.qq.com/api/ip2city?otype=jsonp&callback=${cb}`;
+                script.onerror = () => { 
+                    cleanup(); 
+                    reject2(new Error('load error')); 
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        // 方案3: 使用腾讯 CDN 资源获取 IP
+        async function tryTencentCDN() {
+            try {
+                const res = await fetch('https://cdn.jsdelivr.net/npm/axios@1.6.0/package.json', {
+                    method: 'HEAD',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+                const ip = res.headers.get('x-forwarded-for') || 
+                           res.headers.get('x-real-ip') ||
+                           res.headers.get('cf-connecting-ip');
+                if (ip) {
+                    return { ip, loc: 'CN' };
+                }
+                throw new Error('no ip from cdn');
+            } catch (e) {
+                throw e;
+            }
+        }
+
+        // 依次尝试三种方案
+        async function tryAll() {
+            const strategies = [
+                tryTencentCloud,
+                tryTencentNews,
+                tryTencentCDN
+            ];
+            
+            for (const strategy of strategies) {
+                try {
+                    const result = await strategy();
+                    if (result && result.ip && result.ip !== 'Unknown') {
+                        resolve(result);
+                        return;
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            reject(new Error('所有腾讯节点探测方式均失败'));
+        }
+
+        tryAll();
     });
 }
 
@@ -665,35 +887,45 @@ async function runSplitTest() {
         tagEl.textContent = 'TESTING';
         tagEl.className = 'tag status-warn';
         
-        try {
-            let r;
-            if (node.type === 'ali') {
-                r = await getAliNodeIP();
-            } else if (node.type === 'tencent') {
-                r = await getTencentNodeIP();
-            } else if (node.type === 'netease') {
-                r = await getNeteaseNodeIP();
-            } else if (node.type === 'bytedance') {
-                r = await getByteDanceNodeIP(node.url);
-            } else {
-                r = await getCFNodeIP(node.url);
+        let success = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                let r;
+                if (node.type === 'ali') {
+                    r = await getAliNodeIP();
+                } else if (node.type === 'tencent') {
+                    r = await getTencentNodeIP();
+                } else if (node.type === 'netease') {
+                    r = await getNeteaseNodeIP();
+                } else if (node.type === 'bytedance') {
+                    r = await getByteDanceNodeIP(node.url);
+                } else {
+                    r = await getCFNodeIPWithFallback(node);
+                }
+                
+                valEl.classList.remove('anim-pulse');
+                const flag = r.loc ? getFlagEmoji(r.loc) : '🌐';
+                valEl.dataset.ip = r.ip;
+                valEl.dataset.flag = flag;
+                valEl.innerHTML = `<span>${flag}</span> ${maskIP(r.ip)}`;
+                subEl.textContent = '地区 / Region: ' + (r.loc || '未知');
+                tagEl.textContent = 'HIT';
+                tagEl.className = 'tag status-good';
+                success = true;
+                break;
+                
+            } catch (e) {
+                if (attempt === 3) {
+                    valEl.classList.remove('anim-pulse');
+                    valEl.textContent = '访问被拒绝 / Access Denied';
+                    valEl.style.color = 'var(--error)';
+                    subEl.textContent = '该节点被拦截、超时或跨域受限 (尝试3次)';
+                    tagEl.textContent = 'FAIL';
+                    tagEl.className = 'tag status-bad';
+                } else {
+                    await new Promise(r => setTimeout(r, 800 * attempt));
+                }
             }
-            
-            valEl.classList.remove('anim-pulse');
-            const flag = r.loc ? getFlagEmoji(r.loc) : '🌐';
-            valEl.dataset.ip = r.ip;
-            valEl.dataset.flag = flag;
-            valEl.innerHTML = `<span>${flag}</span> ${maskIP(r.ip)}`;
-            subEl.textContent = '地区 / Region: ' + (r.loc || '未知');
-            tagEl.textContent = 'HIT';
-            tagEl.className = 'tag status-good';
-        } catch (e) {
-            valEl.classList.remove('anim-pulse');
-            valEl.textContent = '访问被拒绝 / Access Denied';
-            valEl.style.color = 'var(--error)';
-            subEl.textContent = '该节点被拦截、超时或跨域受限';
-            tagEl.textContent = 'FAIL';
-            tagEl.className = 'tag status-bad';
         }
     });
 
@@ -883,4 +1115,469 @@ async function runAllTestsAndScreenshot() {
     }
 }
 
-window.onload = init;
+
+// ===== 主题切换 =====
+function setTheme(mode) {
+    document.documentElement.setAttribute('data-theme', mode);
+    localStorage.setItem('Hangdn_theme', mode);
+    
+    const lightBtn = document.getElementById('theme-light');
+    const darkBtn = document.getElementById('theme-dark');
+    if (lightBtn) lightBtn.classList.toggle('active', mode === 'light');
+    if (darkBtn) darkBtn.classList.toggle('active', mode === 'dark');
+}
+
+function initTheme() {
+    const saved = localStorage.getItem('Hangdn_theme') || 'light';
+    setTheme(saved);
+}
+
+// ===== 回顶部按钮 =====
+function initBackToTop() {
+    const btn = document.getElementById('back-to-top');
+    if (!btn) return;
+    
+    // 滚动时显示/隐藏
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 300) {
+            btn.classList.add('show');
+        } else {
+            btn.classList.remove('show');
+        }
+    }, { passive: true });
+    
+    // 点击回到顶部
+    btn.addEventListener('click', function() {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+window.onload = function() {
+    init();
+    initTheme();
+    initBackToTop();
+};
+
+/* ==============================================================
+   升级版：歌词窗口可拖动、缩放、更改颜色（保留全部原有功能）
+   API 接口采用 2026.04.24 更新版本 (meting + 备用歌词)
+   ============================================================== */
+
+// -------- 配置 --------
+const PLAYLIST_ID = '14148542684';
+
+// -------- DOM 引用 --------
+const capsule = document.getElementById('music-capsule');
+const capsuleCover = document.getElementById('capsule-cover');
+const playerWrap = document.getElementById('player-wrap');
+const aplayerContainer = document.getElementById('aplayer-container');
+const rightMenu = document.getElementById('right-menu');
+
+const floatingLyrics = document.getElementById('floating-lyrics');
+const currentLineEl = floatingLyrics.querySelector('.current-line');
+const nextLineEl = floatingLyrics.querySelector('.next-line');
+const colorPicker = document.getElementById('lyrics-color-picker');
+const resetColorBtn = document.getElementById('reset-lyrics-color');
+
+let aplayer = null;
+let lyricsInterval = null;
+let currentLyric = '';
+let lyricsVisible = true;
+
+// -------- 歌词颜色管理 --------
+let currentLyricsColor = '#ff8c00'; // 默认橙
+
+// 更新歌词颜色（应用到当前歌词窗口）
+function applyLyricsColor(color) {
+  if (!color) return;
+  currentLyricsColor = color;
+  // 直接修改 floatingLyrics 的 color，子元素继承
+  floatingLyrics.style.color = color;
+  // 当前行和下一行显式继承（但已继承，保险）
+  currentLineEl.style.color = color;
+  nextLineEl.style.color = color;
+  // 同时修改 APlayer 内部歌词颜色（保证一致性）
+  const lrcLines = document.querySelectorAll('.aplayer-lrc p');
+  lrcLines.forEach(p => {
+    if (p.classList.contains('aplayer-lrc-current')) {
+      p.style.color = color;
+    } else {
+      p.style.color = color;
+    }
+  });
+  // 存储偏好
+  try { localStorage.setItem('lyricsColor', color); } catch(e) {}
+}
+
+// 重置为默认橙色
+function resetLyricsColor() {
+  applyLyricsColor('#ff8c00');
+  colorPicker.value = '#ff8c00';
+}
+
+// 颜色选择器事件
+colorPicker.addEventListener('input', (e) => {
+  applyLyricsColor(e.target.value);
+});
+resetColorBtn.addEventListener('click', resetLyricsColor);
+
+// 从 localStorage 恢复颜色
+function restoreLyricsColor() {
+  try {
+    const saved = localStorage.getItem('lyricsColor');
+    if (saved) {
+      applyLyricsColor(saved);
+      colorPicker.value = saved;
+    } else {
+      applyLyricsColor('#ff8c00');
+      colorPicker.value = '#ff8c00';
+    }
+  } catch(e) { resetLyricsColor(); }
+}
+
+// -------- 歌词窗口拖动 (原生拖拽) --------
+let dragData = { active: false, offsetX: 0, offsetY: 0 };
+
+floatingLyrics.addEventListener('mousedown', (e) => {
+  // 如果点击的是控制区或颜色选择器，不触发拖动
+  if (e.target.closest('.lyrics-controls')) return;
+  if (e.target.closest('input')) return;
+  if (e.button !== 0) return;
+  dragData.active = true;
+  const rect = floatingLyrics.getBoundingClientRect();
+  dragData.offsetX = e.clientX - rect.left;
+  dragData.offsetY = e.clientY - rect.top;
+  floatingLyrics.style.cursor = 'grabbing';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragData.active) return;
+  let left = e.clientX - dragData.offsetX;
+  let top = e.clientY - dragData.offsetY;
+  // 边界约束（避免完全拖出视野）
+  const maxX = window.innerWidth - floatingLyrics.offsetWidth - 10;
+  const maxY = window.innerHeight - floatingLyrics.offsetHeight - 10;
+  left = Math.max(10, Math.min(left, maxX));
+  top = Math.max(10, Math.min(top, maxY));
+  floatingLyrics.style.left = left + 'px';
+  floatingLyrics.style.top = top + 'px';
+  floatingLyrics.style.bottom = 'auto';
+  floatingLyrics.style.right = 'auto';
+});
+
+document.addEventListener('mouseup', () => {
+  if (dragData.active) {
+    dragData.active = false;
+    floatingLyrics.style.cursor = 'grab';
+  }
+});
+
+// 触摸支持 (移动端拖动)
+let touchDrag = { active: false, offsetX: 0, offsetY: 0 };
+floatingLyrics.addEventListener('touchstart', (e) => {
+  if (e.target.closest('.lyrics-controls')) return;
+  if (e.touches.length === 1) {
+    const touch = e.touches[0];
+    const rect = floatingLyrics.getBoundingClientRect();
+    touchDrag.offsetX = touch.clientX - rect.left;
+    touchDrag.offsetY = touch.clientY - rect.top;
+    touchDrag.active = true;
+  }
+}, { passive: true });
+
+document.addEventListener('touchmove', (e) => {
+  if (!touchDrag.active || e.touches.length !== 1) return;
+  const touch = e.touches[0];
+  let left = touch.clientX - touchDrag.offsetX;
+  let top = touch.clientY - touchDrag.offsetY;
+  const maxX = window.innerWidth - floatingLyrics.offsetWidth - 10;
+  const maxY = window.innerHeight - floatingLyrics.offsetHeight - 10;
+  left = Math.max(10, Math.min(left, maxX));
+  top = Math.max(10, Math.min(top, maxY));
+  floatingLyrics.style.left = left + 'px';
+  floatingLyrics.style.top = top + 'px';
+  floatingLyrics.style.bottom = 'auto';
+  floatingLyrics.style.right = 'auto';
+}, { passive: true });
+
+document.addEventListener('touchend', () => {
+  touchDrag.active = false;
+}, { passive: true });
+
+// -------- 独立歌词显示功能 (增强) --------
+function showLyricsWithEffect(currentText, nextText) {
+  if (!lyricsVisible) return;
+  if (currentText === currentLyric && currentText) return;
+  currentLyric = currentText;
+  currentLineEl.innerHTML = '';
+  if (currentText && currentText.trim()) {
+    const typingSpan = document.createElement('span');
+    typingSpan.className = 'typing-text';
+    typingSpan.textContent = currentText;
+    const fadeSpan = document.createElement('span');
+    fadeSpan.className = 'fade-in-text';
+    fadeSpan.textContent = currentText;
+    if (currentText.length > 15) {
+      currentLineEl.appendChild(fadeSpan);
+    } else {
+      currentLineEl.appendChild(typingSpan);
+    }
+    nextLineEl.textContent = nextText || '';
+    floatingLyrics.classList.add('show');
+    // 确保颜色应用
+    applyLyricsColor(currentLyricsColor);
+  } else {
+    floatingLyrics.classList.remove('show');
+  }
+}
+
+function updateLyricsFromDOM() {
+  try {
+    if (!lyricsVisible) return;
+    const lrcContainer = document.querySelector('.aplayer-lrc');
+    if (!lrcContainer) { floatingLyrics.classList.remove('show'); return; }
+    const currentLrc = lrcContainer.querySelector('p.aplayer-lrc-current');
+    const allLrcLines = lrcContainer.querySelectorAll('p');
+    if (currentLrc && currentLrc.textContent.trim()) {
+      const currentText = currentLrc.textContent.trim();
+      let nextText = '';
+      for (let i = 0; i < allLrcLines.length; i++) {
+        if (allLrcLines[i] === currentLrc && i < allLrcLines.length - 1) {
+          nextText = allLrcLines[i + 1].textContent.trim();
+          break;
+        }
+      }
+      showLyricsWithEffect(currentText, nextText);
+    } else {
+      floatingLyrics.classList.remove('show');
+      currentLyric = '';
+    }
+  } catch (error) {
+    floatingLyrics.classList.remove('show');
+    currentLyric = '';
+  }
+}
+
+function startLyricsUpdate(ap) {
+  if (lyricsInterval) clearInterval(lyricsInterval);
+  lyricsInterval = setInterval(() => updateLyricsFromDOM(), 120);
+}
+
+// -------- 初始化 APlayer (meting API + 备用歌词) --------
+function initMeting() {
+  if (aplayer) return Promise.resolve(aplayer);
+  return new Promise(async (resolve, reject) => {
+    try {
+      aplayerContainer.innerHTML = '';
+      const apiUrl = `https://api.injahow.cn/meting/?server=netease&type=playlist&id=${PLAYLIST_ID}`;
+      const response = await fetch(apiUrl);
+      const songs = await response.json();
+      if (!songs || songs.length === 0) throw new Error('歌单加载失败');
+
+      const audioList = [];
+      for (const song of songs) {
+        let lrc = song.lrc || '';
+        if (!lrc || lrc === '') {
+          try {
+            const lrcUrl = `https://api.uomg.com/api/163/lyric?id=${song.id}`;
+            const lrcRes = await fetch(lrcUrl);
+            const lrcData = await lrcRes.json();
+            lrc = lrcData.lyric || '';
+          } catch(e) { /* 忽略 */ }
+        }
+        audioList.push({
+          name: song.name,
+          artist: song.artist,
+          url: song.url,
+          cover: song.pic,
+          lrc: lrc
+        });
+      }
+
+      aplayer = new APlayer({
+        container: aplayerContainer,
+        audio: audioList,
+        theme: '#49b1f5',
+        loop: 'all',
+        preload: 'auto',
+        volume: 0.7,
+        lrcType: 3
+      });
+      bindAPlayerEvents(aplayer);
+      resolve(aplayer);
+    } catch (error) {
+      console.error('歌单加载失败:', error);
+      reject(error);
+    }
+  });
+}
+
+function bindAPlayerEvents(ap) {
+  if (!ap) return;
+  function updateCover() {
+    try {
+      const info = ap.list.audios[ap.list.index];
+      if (info && info.cover) capsuleCover.src = info.cover;
+    } catch(e) {}
+  }
+  ap.on('loadeddata', updateCover);
+  ap.on('listswitch', updateCover);
+  ap.on('play', () => {
+    capsule.classList.add('playing');
+    startLyricsUpdate(ap);
+    // 确保歌词颜色
+    applyLyricsColor(currentLyricsColor);
+  });
+  ap.on('pause', () => {
+    capsule.classList.remove('playing');
+    floatingLyrics.classList.remove('show');
+    currentLyric = '';
+  });
+  ap.on('ended', () => {
+    floatingLyrics.classList.remove('show');
+    currentLyric = '';
+  });
+  // 歌词加载后应用颜色
+  ap.on('lrc loaded', () => {
+    applyLyricsColor(currentLyricsColor);
+  });
+}
+
+async function ensurePlayerAndRun(fn) {
+  try {
+    const ap = await initMeting();
+    if (typeof fn === 'function') fn(ap);
+  } catch(err) { console.warn('播放器未就绪：', err); }
+}
+
+// -------- 胶囊点击 --------
+capsule.addEventListener('click', () => {
+  capsule.style.display = 'none';
+  playerWrap.classList.add('show');
+  initMeting().catch(() => {});
+});
+
+// -------- 右键菜单 (完全保留) --------
+function showRightMenuAt(clientX, clientY) {
+  rightMenu.style.display = 'block';
+  rightMenu.classList.remove('show');
+  requestAnimationFrame(() => {
+    const mw = rightMenu.offsetWidth || 220;
+    const mh = rightMenu.offsetHeight || 280;
+    let left = Math.round(clientX - mw/2);
+    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+    let top = clientY - mh - 12;
+    if (top < 8) top = clientY + 12;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, window.innerHeight - mh - 8);
+    rightMenu.style.left = left + 'px';
+    rightMenu.style.top = top + 'px';
+    const arrowLeft = Math.max(12, Math.min(clientX - left, mw - 12));
+    rightMenu.style.setProperty('--arrow-left', arrowLeft + 'px');
+    rightMenu.classList.add('show');
+  });
+}
+
+document.addEventListener('contextmenu', (e) => {
+  if (e.ctrlKey) return true;
+  e.preventDefault();
+  showRightMenuAt(e.clientX, e.clientY);
+});
+
+function hideRightMenuImmediate() {
+  rightMenu.classList.remove('show');
+  rightMenu.style.display = 'none';
+}
+
+document.addEventListener('click', (e) => {
+  if (!rightMenu.contains(e.target)) hideRightMenuImmediate();
+});
+document.addEventListener('touchstart', (e) => {
+  if (!rightMenu.contains(e.target)) hideRightMenuImmediate();
+});
+
+// -------- 歌词显示/隐藏 (保留) --------
+function toggleLyricsVisibility() {
+  lyricsVisible = !lyricsVisible;
+  if (lyricsVisible) {
+    floatingLyrics.classList.add('show');
+    if (aplayer && !aplayer.audio.paused) startLyricsUpdate(aplayer);
+  } else {
+    floatingLyrics.classList.remove('show');
+    currentLineEl.textContent = '';
+    nextLineEl.textContent = '';
+    currentLyric = '';
+  }
+  const lyricsMenuItem = document.getElementById('menu-lyrics');
+  lyricsMenuItem.textContent = lyricsVisible ? '📜 隐藏歌词' : '📜 显示歌词';
+  localStorage.setItem('lyricsVisible', lyricsVisible.toString());
+}
+
+// -------- 菜单绑定 (全部保留) --------
+document.getElementById('menu-play').addEventListener('click', () => {
+  ensurePlayerAndRun(ap => ap.toggle());
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-prev').addEventListener('click', () => {
+  ensurePlayerAndRun(ap => ap.skipBack());
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-next').addEventListener('click', () => {
+  ensurePlayerAndRun(ap => ap.skipForward());
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-volup').addEventListener('click', () => {
+  ensurePlayerAndRun(ap => ap.volume(Math.min((ap.audio.volume || 0.8) + 0.1, 1), true));
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-voldown').addEventListener('click', () => {
+  ensurePlayerAndRun(ap => ap.volume(Math.max((ap.audio.volume || 0.2) - 0.1, 0), true));
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-lyrics').addEventListener('click', () => {
+  toggleLyricsVisibility();
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-support').addEventListener('click', () => {
+  window.open('https://aoso.hangdn.com', '_blank');
+  hideRightMenuImmediate();
+});
+document.getElementById('menu-fullscreen').addEventListener('click', () => {
+  hideRightMenuImmediate();
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+});
+document.getElementById('menu-close').addEventListener('click', () => {
+  ensurePlayerAndRun(ap => ap.pause());
+  playerWrap.classList.remove('show');
+  capsule.style.display = 'flex';
+  hideRightMenuImmediate();
+});
+
+// -------- 启动 & 恢复状态 --------
+initMeting().catch(() => console.log('APlayer初始化失败'));
+
+document.addEventListener('DOMContentLoaded', function() {
+  // 歌词可见性
+  const savedLyricsVisible = localStorage.getItem('lyricsVisible');
+  if (savedLyricsVisible !== null) {
+    lyricsVisible = savedLyricsVisible === 'true';
+  }
+  const lyricsMenuItem = document.getElementById('menu-lyrics');
+  lyricsMenuItem.textContent = lyricsVisible ? '📜 隐藏歌词' : '📜 显示歌词';
+  if (!lyricsVisible) {
+    floatingLyrics.classList.remove('show');
+  } else {
+    // 默认显示（但需等待播放）
+  }
+  // 恢复颜色
+  restoreLyricsColor();
+  // 确保窗口可拖拽样式
+  floatingLyrics.style.cursor = 'grab';
+});
