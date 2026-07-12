@@ -1140,22 +1140,41 @@ body[data-glass="medium"] .nav-tabs-wrapper::before {
   margin-bottom: 8px;
   font-weight: bold;
   min-height: 28px;
-  overflow: hidden;
   position: relative;
   color: inherit;
   transition: color 0.15s ease;
   word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
+  overflow: hidden;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* ===== 添加书法字体 ===== */
+  font-family: 'STXingkai', '华文行楷', 'Xingkai SC', 'Ma Shan Zheng', cursive;
+  letter-spacing: 2px;
 }
 
 #floating-lyrics .next-line {
   font-size: 14px;
   min-height: 18px;
   color: inherit;
-  opacity: 0.75;
+  opacity: 0.8;
   transition: color 0.15s ease;
   word-break: break-word;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
+  overflow: hidden;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  /* ===== 添加书法字体 ===== */
+  font-family: 'STXingkai', '华文行楷', 'Xingkai SC', 'Ma Shan Zheng', cursive;
+  letter-spacing: 1px;
 }
 
 /* 亮色模式下下一行歌词更清晰 */
@@ -1174,9 +1193,8 @@ body[data-glass="medium"] .nav-tabs-wrapper::before {
   display: inline-block;
   overflow: hidden;
   white-space: nowrap;
-  animation: typing 2s steps(40, end), blink-caret 0.75s step-end infinite;
-  border-right: 2px solid var(--lyrics-color-current, #ff4500);
-  animation-fill-mode: both;
+  width: 0;
+  animation: typing 2s steps(40, end) forwards;
   color: inherit;
 }
 
