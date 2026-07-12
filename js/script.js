@@ -1315,20 +1315,14 @@ function showLyricsWithEffect(currentText, nextText) {
   currentLyric = currentText;
   currentLineEl.innerHTML = '';
   if (currentText && currentText.trim()) {
+    // 全部使用打字效果
     const typingSpan = document.createElement('span');
     typingSpan.className = 'typing-text';
     typingSpan.textContent = currentText;
-    const fadeSpan = document.createElement('span');
-    fadeSpan.className = 'fade-in-text';
-    fadeSpan.textContent = currentText;
-    if (currentText.length > 15) {
-      currentLineEl.appendChild(fadeSpan);
-    } else {
-      currentLineEl.appendChild(typingSpan);
-    }
+    currentLineEl.appendChild(typingSpan);
+    
     nextLineEl.textContent = nextText || '';
     floatingLyrics.classList.add('show');
-    // 确保颜色应用
     applyLyricsColor(currentLyricsColor);
   } else {
     floatingLyrics.classList.remove('show');
